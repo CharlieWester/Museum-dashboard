@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Charlie Wester">
+
+<title>Comparable Museums</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="millcompmus_shinylive_files/libs/clipboard/clipboard.min.js"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-html/popper.min.js"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-html/anchor.min.js"></script>
+<link href="millcompmus_shinylive_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="millcompmus_shinylive_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="millcompmus_shinylive_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="millcompmus_shinylive_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="millcompmus_shinylive_files/libs/bootstrap/bootstrap-efbb37e9afcc02144ebbc7afd12a776f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<meta name="shinylive:serviceworker_dir" content=".">
+<script src="millcompmus_shinylive_files/libs/quarto-contrib/shinylive-0.10.12/shinylive/load-shinylive-sw.js" type="module"></script>
+<script src="millcompmus_shinylive_files/libs/quarto-contrib/shinylive-0.10.12/shinylive/run-python-blocks.js" type="module"></script>
+<link href="millcompmus_shinylive_files/libs/quarto-contrib/shinylive-0.10.12/shinylive/shinylive.css" rel="stylesheet">
+<link href="millcompmus_shinylive_files/libs/quarto-contrib/shinylive-quarto-css/shinylive-quarto.css" rel="stylesheet">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Comparable Museums</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Charlie Wester </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="shiny-documents" class="level2">
+<h2 class="anchored" data-anchor-id="shiny-documents">Shiny Documents</h2>
+<p>This dashboard compares museums on four metrics: visitors per square foot of exhibit space, visitors per 1,000 residents in the metro area (MSA), visitors per 1,000 local tourists, and program revenue per visitor.</p>
+<pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
+#|   shinylive does not work in self-contained HTML documents.
+#|   Please set `embed-resources: false` in your metadata.
+#| standalone: true
+#| viewerHeight: 900
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(ggrepel)
+library(tibble)
+
+# ---- Embedded data ----
+# Originally loaded from Millcompmuseums.xlsx. Shinylive apps run entirely
+# in the browser (WebAssembly) and cannot read local files, so the data is
+# baked directly into the script here.
+Millcompmuseums &lt;- tibble::tribble(
+  ~Museum, ~City, ~MSA_Pop, ~SqFt, ~Visitors, ~Program_Revenue, ~Inv_Income, ~Rev, ~Expe, ~pop_15, ~pop_30, ~pop_60, ~Local_Tourists, ~Pragmatic_Focus, ~Under_1M_MSA, ~Interest_Group_Association,
+  "National Brewery Musuem", "Potosi", 52446, 7000, 5250, 26242, NA, 90061, 117057, 1265, 38084, 160680, 800000, 0, 1, 1,
+  "Shelburne Museum", "Shelburne VT", 227803, 132000, 136413, 1675064, 293690, 19058612, 9678671, 20058, 113821, 215934, 4000000, 0, 1, 0,
+  "Harley Davidson Musuem", "Milwaukee WI", 1575010, 105000, 350000, NA, NA, NA, NA, 367558, 984768, 1977699, 22100000, 1, 0, 1,
+  "Autry Museum of the American West", "Los Angeles CA", 13200998, 46000, 150000, 564994, 180693, 11958406, 21652677, 1079283, 5061366, 12969019, 49100000, 1, 0, 0,
+  "National Cowboy Museum", "Oklahoma City OK", 1425695, 200000, 120000, 3414856, 665676, 18530216, 14538617, 193188, 1006448, 1463598, 24500000, 0, 0, 0,
+  "Dr. Pepper Museum", "Waco TX", 295782, 35000, 270000, 2724541, 2382705, 8028879, 3688293, 165497, 243685, 597186, 3000000, 0, 1, 1,
+  "Nordic Museum", "Seattle WA", 4018762, 57875, 182000, 1465376, 330816, 5865407, 7454335, 197739, 819870, 2903048, 40000000, 1, 0, 0,
+  "Museum of Pop Culture", "Seattle WA", 4018762, 140000, 577721, 17324715, 359435, 21040617, 30004259, 484114, 1746500, 3555108, 40000000, 1, 0, 0,
+  "National Museum of Industrial History ", "Bethlehem PA", 887615, 18000, 16000, 244535, 37611, 1310548, 1626494, 195890, 624448, 1543761, 16500000, 0, 1, 0,
+  "Tenement Museum", "New York NY", 19426449, 50000, 250000, 5782121, 696717, 17776057, 11813856, 2085878, 8459145, 15583533, 65000000, 1, 0, 0,
+  "Museum of the dog ", "New York NY", 19426449, 15000, 90000, 287461, 88164, 2537140, 4123390, 2010447, 8128067, 15332647, 65000000, 1, 0, 1,
+  "Museum of the dog OLD", "St. Louis MO", 2805473, 14000, 10000, 41318, 2397, 339029, 449820, NA, 264396, 1216378, 24000000, 0, 0, 1,
+  "National Postal Museum", "Washington DC", 6385162, 35000, 157818, NA, NA, NA, NA, 630326, 1887420, 4661726, 27200000, 1, 0, 0,
+  "Gilmore Car Museum", "Kalamazoo MI", 335340, 190000, 130000, 1861931, 593062, 6764648, 4593185, 14456, 180670, 1058052, 3168000, 0, 1, 0,
+  "American Museum of Magic ", "Marshall MI", 133408, 4000, 1800, 11836, 5561, 52639, 58811, 19765, 149835, 1110341, 2000000, 0, 1, 1,
+  "Grand Rapids Museum of Art", "Grand Rapids MI", 1150015, 20000, 33622, 388142, 242875, 5005729, 7913741, 444911, 802118, 1641331, 10000000, 0, 0, 0,
+  "Michigan Maritime Museum", "South Haven MI", 76071, 7640, 25000, 596613, 104921, 1688037, 1721827, 12769, 67523, 738514, 1600000, 0, 1, 0,
+  "Grand Rapids Public Museum", "Grand Rapids MI", 1150015, 59000, 250000, 1031125, 640512, 19808927, 10455457, 432900, 800821, 1646264, 10000000, 0, 0, 0,
+  "Corning Museum of Glass", "Corning NY", 91855, 117400, 460000, 9279831, 6768515, 59870439, 47237362, 26655, 115411, 319196, 700000, 0, 1, 0,
+  "Colorado Springs Money Musuem", "Colorado Springs CO", 755105, 5000, 14000, 22887, NA, NA, NA, 200216, 644858, 1177111, 25600000, 0, 1, 1,
+  "National Watch and Clock Museum", "Columbia PA", 563159, 18000, 12500, 69778, 24562, 3288244, 2969761, 85686, 541021, 1714327, 10000000, 0, 1, 1,
+  "National Quilt Museum", "Paducah KY", 102259, 13000, 37500, 440449, 243929, 1416897, 1037896, 49197, 82934, 214272, 2500000, 0, 1, 1,
+  "American Sign Museum", "Cincinnati OH", 2256884, 42000, 60000, 805079, 112769, 2395968, 1882919, 283176, 980449, 2207396, 25900000, 0, 0, 0,
+  "Neon Museum ", "Las Vegas NV", 2421685, 100000, 221017, 6674143, 0, 9097754, 8714829, 791050, 2107581, 2186491, 38545700, 0, 0, 0,
+  "Museum of Neon Art", "Glendale CA", 13200998, 7600, 10000, 188716, 18989, 387339, 456968, 762893, 4147014, 12723559, 49100000, 1, 0, 0
+)
+
+# ---- Compute the ratios (same logic as original) ----
+museum_data &lt;- Millcompmuseums %&gt;%
+  mutate(
+    Visitors_per_SqFt        = Visitors / SqFt,
+    Visitors_per_1000_MSA    = Visitors / (MSA_Pop / 1000),
+    Visitors_per_1000_Local_Tourists = Visitors / (Local_Tourists / 1000),
+    Revenue_per_Visitor       = Program_Revenue / Visitors,
+    Over_50k_SqFt             = if_else(SqFt &gt; 50000, 1, 0),
+    Net_Inventory_Income_Per_Visitor   = Inv_Income / Visitors,
+    Rev_per_Visitor        = Rev / Visitors,
+    Visitors_per_1000_Pop15 = Visitors / (pop_15 / 1000),
+    Visitors_per_1000_Pop30 = Visitors / (pop_30 / 1000),
+    Visitors_per_1000_Pop60 = Visitors / (pop_60 / 1000),
+    Net_Income_per_rev = (Rev - Expe) / Rev
+  )
+
+# ================== UI ==================
+ui &lt;- fluidPage(
+
+  sidebarLayout(
+
+    sidebarPanel(
+      fluidRow(
+        column(6, actionButton("select_all", "Select All", width = "100%")),
+        column(6, actionButton("deselect_all", "Deselect All", width = "100%"))
+      ),
+
+      actionButton("my_peer_group", "My Peer Group", width = "100%", class = "btn-primary"),
+
+      checkboxGroupInput(
+        "museum_filter",
+        "Select museum(s):",
+        choices = sort(unique(museum_data$Museum)),
+        selected = sort(unique(museum_data$Museum))
+      ),
+
+      selectInput(
+        "population_metric",
+        "Population comparison:",
+        choices = c(
+          "MSA Population",
+          "15 Minute Population",
+          "30 Minute Population",
+          "60 Minute Population"
+        )
+      ),
+
+      selectInput(
+        "scatter_predictor",
+        "Predict attendance using:",
+        choices = c(
+          "Exhibit Size",
+          "MSA Population",
+          "Population (15 min)",
+          "Population (30 min)",
+          "Population (60 min)",
+          "Local Tourists"
+        ),
+        selected = "Population (30 min)"
+      ),
+
+      helpText("Note: a museum is only excluded from a specific chart if it's missing the data that chart needs (e.g. missing local tourist data excludes it from that chart, but it still appears in the others)."),
+
+      checkboxGroupInput(
+        "pragmatic_filter",
+        "Pragmatic focus:",
+        choices = c("Yes" = 1, "No" = 0),
+        selected = c(1, 0)
+      ),
+
+      checkboxGroupInput(
+        "msa_filter",
+        "MSA size:",
+        choices = c("Under 1M MSA" = 1, "1M+ MSA" = 0),
+        selected = c(1, 0)
+      ),
+
+      checkboxGroupInput(
+        "sqft_filter",
+        "Exhibit size:",
+        choices = c("Over 50,000 sq ft" = 1, "50,000 sq ft or less" = 0),
+        selected = c(1, 0)
+      ),
+
+      checkboxGroupInput(
+        "interest_filter",
+        "Interest group association:",
+        choices = c("Yes" = 1, "No" = 0),
+        selected = c(1, 0)
+      )
+    ),
+
+    mainPanel(
+      h3("Summary Statistics"),
+      tableOutput("summaryTable"),
+
+      plotOutput("scatterPlot", height = "500px"),
+
+      h3("Visitors per Square Foot"),
+      plotOutput("sqftPlot", height = "350px"),
+
+      h3("Visitors per 1,000 local Population"),
+      plotOutput("msaPlot", height = "350px"),
+
+      h3("Visitors per 1,000 Total Local Tourists"),
+      plotOutput("localTouristPlot", height = "350px"),
+
+      h3("Drivers of Attendance"),
+      p("Explore the relationship between museum attendance and different predictors."),
+
+      h3("Financial Contribution"),
+      plotOutput("financialPlot", height = "350px"),
+
+      h3("Ratio of Total Revenue"),
+      plotOutput("TotalRevPlot", height = "350px"),
+
+      h3("Surplus Margin"),
+      plotOutput("expenses", height = "350px"),
+
+      plotOutput("financialScatter", height = "500px"),
+
+      h3("Estimated Visitors for a Hypothetical Museum"),
+      p("Using the median ratios from the currently filtered museums (median is used instead of mean to reduce the influence of outlier museums), estimate visitor counts for a museum with a given square footage, MSA population, and local tourist count. 95% confidence intervals are computed via bootstrap resampling and reflect uncertainty from the small comparison sample \u2014 wide intervals mean the estimate should be treated as a rough range, not a precise number."),
+
+      h4("How reliable are these three predictors?"),
+      p("R-squared shows how much of the variation in visitor counts across the currently filtered museums is explained by each predictor alone (1.0 = perfect fit, 0 = no relationship). Requires at least 3 museums in the current filter."),
+      tableOutput("modelFitTable"),
+
+      fluidRow(
+        column(4, numericInput("est_sqft", "Exhibit size (sq ft):", value = 15000, min = 0)),
+        column(4, numericInput("est_msa", "MSA population:", value = 335000, min = 0)),
+        column(4, numericInput("est_local_tourists", "Local tourists:", value = 3168000, min = 0))
+      ),
+
+      tableOutput("estimateTable"),
+
+      h3("Estimated Program Revenue &amp; Inventory Net Income"),
+      p("Uses the combined median visitor estimate above, multiplied by the median program revenue per visitor and median inventory net income per visitor. 95% confidence intervals reflect the same bootstrap uncertainty as the visitor estimate."),
+      tableOutput("revenueEstimateTable")
+    )
+  )
+)
+
+# ================== SERVER ==================
+server &lt;- function(input, output, session) {
+
+  observeEvent(input$select_all, {
+    updateCheckboxGroupInput(session, "museum_filter",
+                              selected = sort(unique(museum_data$Museum)))
+  })
+
+  observeEvent(input$deselect_all, {
+    updateCheckboxGroupInput(session, "museum_filter", selected = character(0))
+  })
+
+  observeEvent(input$my_peer_group, {
+    peer_group &lt;- c("National Brewery Musuem", "National Museum of Industrial History ",
+                     "National Quilt Museum", "American Museum of Magic ")
+    matched &lt;- intersect(peer_group, museum_data$Museum)
+    updateCheckboxGroupInput(session, "museum_filter", selected = matched)
+  })
+
+  filtered_data &lt;- reactive({
+    req(input$museum_filter, input$pragmatic_filter, input$msa_filter,
+        input$sqft_filter, input$interest_filter)
+    museum_data %&gt;%
+      filter(
+        Museum %in% input$museum_filter,
+        Pragmatic_Focus %in% as.numeric(input$pragmatic_filter),
+        Under_1M_MSA %in% as.numeric(input$msa_filter),
+        Over_50k_SqFt %in% as.numeric(input$sqft_filter),
+        Interest_Group_Association %in% as.numeric(input$interest_filter)
+      )
+  })
+
+  output$summaryTable &lt;- renderTable({
+
+    df &lt;- filtered_data()
+
+    tibble(
+      Metric = c(
+        "Visitors per Sq Ft",
+        "Visitors per 1,000 MSA Population",
+        "Visitors per 1,000 Population (15 min)",
+        "Visitors per 1,000 Population (30 min)",
+        "Visitors per 1,000 Population (60 min)",
+        "Visitors per 1,000 Local Tourists",
+        "Program Revenue per Visitor",
+        "Net Inventory Income per Visitor"
+      ),
+
+      Mean = c(
+        mean(df$Visitors_per_SqFt, na.rm = TRUE),
+        mean(df$Visitors_per_1000_MSA, na.rm = TRUE),
+        mean(df$Visitors_per_1000_Pop15, na.rm = TRUE),
+        mean(df$Visitors_per_1000_Pop30, na.rm = TRUE),
+        mean(df$Visitors_per_1000_Pop60, na.rm = TRUE),
+        mean(df$Visitors_per_1000_Local_Tourists, na.rm = TRUE),
+        mean(df$Revenue_per_Visitor, na.rm = TRUE),
+        mean(df$Net_Inventory_Income_Per_Visitor, na.rm = TRUE)
+      ),
+
+      Median = c(
+        median(df$Visitors_per_SqFt, na.rm = TRUE),
+        median(df$Visitors_per_1000_MSA, na.rm = TRUE),
+        median(df$Visitors_per_1000_Pop15, na.rm = TRUE),
+        median(df$Visitors_per_1000_Pop30, na.rm = TRUE),
+        median(df$Visitors_per_1000_Pop60, na.rm = TRUE),
+        median(df$Visitors_per_1000_Local_Tourists, na.rm = TRUE),
+        median(df$Revenue_per_Visitor, na.rm = TRUE),
+        median(df$Net_Inventory_Income_Per_Visitor, na.rm = TRUE)
+      ),
+
+      Min = c(
+        min(df$Visitors_per_SqFt, na.rm = TRUE),
+        min(df$Visitors_per_1000_MSA, na.rm = TRUE),
+        min(df$Visitors_per_1000_Pop15, na.rm = TRUE),
+        min(df$Visitors_per_1000_Pop30, na.rm = TRUE),
+        min(df$Visitors_per_1000_Pop60, na.rm = TRUE),
+        min(df$Visitors_per_1000_Local_Tourists, na.rm = TRUE),
+        min(df$Revenue_per_Visitor, na.rm = TRUE),
+        min(df$Net_Inventory_Income_Per_Visitor, na.rm = TRUE)
+      ),
+
+      Max = c(
+        max(df$Visitors_per_SqFt, na.rm = TRUE),
+        max(df$Visitors_per_1000_MSA, na.rm = TRUE),
+        max(df$Visitors_per_1000_Pop15, na.rm = TRUE),
+        max(df$Visitors_per_1000_Pop30, na.rm = TRUE),
+        max(df$Visitors_per_1000_Pop60, na.rm = TRUE),
+        max(df$Visitors_per_1000_Local_Tourists, na.rm = TRUE),
+        max(df$Revenue_per_Visitor, na.rm = TRUE),
+        max(df$Net_Inventory_Income_Per_Visitor, na.rm = TRUE)
+      )
+
+    )
+
+  }, digits = 2)
+
+
+  output$modelFitTable &lt;- renderTable({
+    df &lt;- filtered_data()
+    req(nrow(df) &gt;= 3)
+
+    sqft_model  &lt;- tryCatch(lm(Visitors ~ SqFt, data = df), error = function(e) NULL)
+    msa_model   &lt;- tryCatch(lm(Visitors ~ MSA_Pop, data = df), error = function(e) NULL)
+    local_model &lt;- tryCatch(lm(Visitors ~ Local_Tourists, data = df), error = function(e) NULL)
+
+    pop15_model &lt;- tryCatch(
+      lm(Visitors ~ pop_15, data = df),
+      error = function(e) NULL
+    )
+
+    pop30_model &lt;- tryCatch(
+      lm(Visitors ~ pop_30, data = df),
+      error = function(e) NULL
+    )
+
+    pop60_model &lt;- tryCatch(
+      lm(Visitors ~ pop_60, data = df),
+      error = function(e) NULL
+    )
+
+    r2_sqft  &lt;- if (!is.null(sqft_model))  summary(sqft_model)$r.squared  else NA
+    r2_msa   &lt;- if (!is.null(msa_model))   summary(msa_model)$r.squared   else NA
+    r2_local &lt;- if (!is.null(local_model)) summary(local_model)$r.squared else NA
+
+    r2_pop15 &lt;- if (!is.null(pop15_model)) summary(pop15_model)$r.squared else NA
+    r2_pop30 &lt;- if (!is.null(pop30_model)) summary(pop30_model)$r.squared else NA
+    r2_pop60 &lt;- if (!is.null(pop60_model)) summary(pop60_model)$r.squared else NA
+
+    n_sqft  &lt;- if (!is.null(sqft_model))  nobs(sqft_model)  else NA
+    n_msa   &lt;- if (!is.null(msa_model))   nobs(msa_model)   else NA
+    n_pop15 &lt;- if (!is.null(pop15_model)) nobs(pop15_model) else NA
+    n_pop30 &lt;- if (!is.null(pop30_model)) nobs(pop30_model) else NA
+    n_pop60 &lt;- if (!is.null(pop60_model)) nobs(pop60_model) else NA
+    n_local &lt;- if (!is.null(local_model)) nobs(local_model) else NA
+
+    tibble(
+      Predictor = c(
+        "Exhibit Size",
+        "MSA Population",
+        "Population (15 min)",
+        "Population (30 min)",
+        "Population (60 min)",
+        "Local Tourists"
+      ),
+
+      R2 = c(
+        r2_sqft,
+        r2_msa,
+        r2_pop15,
+        r2_pop30,
+        r2_pop60,
+        r2_local
+      ),
+
+      N = c(
+        n_sqft,
+        n_msa,
+        n_pop15,
+        n_pop30,
+        n_pop60,
+        n_local
+      )
+    )
+  })
+
+  output$estimateTable &lt;- renderTable({
+    df &lt;- filtered_data()
+    req(nrow(df) &gt; 0)
+
+    set.seed(42)
+    n_boot &lt;- 2000
+
+    # ---- Helper: bootstrap a ratio-based estimate ----
+    boot_estimate &lt;- function(ratio_vec, input_value, per_thousand = FALSE) {
+      ratio_vec &lt;- ratio_vec[!is.na(ratio_vec)]
+      if (length(ratio_vec) &lt; 2) return(c(median = NA, lower = NA, upper = NA))
+      scale_factor &lt;- if (per_thousand) input_value / 1000 else input_value
+      boot_medians &lt;- replicate(n_boot, {
+        median(sample(ratio_vec, length(ratio_vec), replace = TRUE)) * scale_factor
+      })
+      c(median = median(ratio_vec) * scale_factor,
+        lower = quantile(boot_medians, 0.025, names = FALSE),
+        upper = quantile(boot_medians, 0.975, names = FALSE))
+    }
+
+    sqft_est  &lt;- boot_estimate(df$Visitors_per_SqFt, input$est_sqft)
+    msa_est   &lt;- boot_estimate(df$Visitors_per_1000_MSA, input$est_msa, per_thousand = TRUE)
+    local_est &lt;- boot_estimate(df$Visitors_per_1000_Local_Tourists, input$est_local_tourists, per_thousand = TRUE)
+
+    # Combined estimate: median of the three method-level point estimates,
+    # with a pooled bootstrap CI built by resampling within each method and averaging.
+    boot_combined &lt;- replicate(n_boot, {
+      s &lt;- if (length(na.omit(df$Visitors_per_SqFt)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_SqFt), replace = TRUE)) * input$est_sqft else NA
+      m &lt;- if (length(na.omit(df$Visitors_per_1000_MSA)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_1000_MSA), replace = TRUE)) * (input$est_msa / 1000) else NA
+      l &lt;- if (length(na.omit(df$Visitors_per_1000_Local_Tourists)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_1000_Local_Tourists), replace = TRUE)) * (input$est_local_tourists / 1000) else NA
+      mean(c(s, m, l), na.rm = TRUE)
+    })
+    combined_median &lt;- median(c(sqft_est["median"], msa_est["median"], local_est["median"]), na.rm = TRUE)
+    combined_lower  &lt;- quantile(boot_combined, 0.025, names = FALSE)
+    combined_upper  &lt;- quantile(boot_combined, 0.975, names = FALSE)
+
+    tibble(
+      Method = c("Based on median visitors/sq ft",
+                 "Based on median visitors/1,000 MSA pop.",
+                 "Based on median visitors/1,000 local tourists",
+                 "Combined estimate (median of the three)"),
+      `Estimated Visitors` = c(sqft_est["median"], msa_est["median"], local_est["median"], combined_median),
+      `95% CI Lower` = c(sqft_est["lower"], msa_est["lower"], local_est["lower"], combined_lower),
+      `95% CI Upper` = c(sqft_est["upper"], msa_est["upper"], local_est["upper"], combined_upper)
+    )
+  }, digits = 0)
+
+  output$revenueEstimateTable &lt;- renderTable({
+    df &lt;- filtered_data()
+    req(nrow(df) &gt; 0)
+
+    set.seed(42)
+    n_boot &lt;- 2000
+
+    median_revenue_ratio   &lt;- median(df$Revenue_per_Visitor, na.rm = TRUE)
+    median_inventory_ratio &lt;- median(df$Net_Inventory_Income_Per_Visitor, na.rm = TRUE)
+
+    boot_combined &lt;- replicate(n_boot, {
+      s &lt;- if (length(na.omit(df$Visitors_per_SqFt)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_SqFt), replace = TRUE)) * input$est_sqft else NA
+      m &lt;- if (length(na.omit(df$Visitors_per_1000_MSA)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_1000_MSA), replace = TRUE)) * (input$est_msa / 1000) else NA
+      l &lt;- if (length(na.omit(df$Visitors_per_1000_Local_Tourists)) &gt;= 2)
+        median(sample(na.omit(df$Visitors_per_1000_Local_Tourists), replace = TRUE)) * (input$est_local_tourists / 1000) else NA
+      mean(c(s, m, l), na.rm = TRUE)
+    })
+    est_visitors &lt;- median(boot_combined, na.rm = TRUE)
+    visitors_lower &lt;- quantile(boot_combined, 0.025, names = FALSE)
+    visitors_upper &lt;- quantile(boot_combined, 0.975, names = FALSE)
+
+    est_revenue &lt;- est_visitors * median_revenue_ratio
+    est_income  &lt;- est_visitors * median_inventory_ratio
+    est_total   &lt;- est_income + est_revenue
+
+    revenue_lower &lt;- visitors_lower * median_revenue_ratio
+    revenue_upper &lt;- visitors_upper * median_revenue_ratio
+    income_lower  &lt;- visitors_lower * median_inventory_ratio
+    income_upper  &lt;- visitors_upper * median_inventory_ratio
+    total_lower   &lt;- revenue_lower + income_lower
+    total_upper   &lt;- revenue_upper + income_upper
+
+    tibble(
+      Metric = c("Estimated Visitors", "Estimated Program Revenue ($)",
+                 "Estimated Inventory Income ($)", "Estimated Total Financial Contribution ($)"),
+      Estimate = c(est_visitors, est_revenue, est_income, est_total),
+      `95% CI Lower` = c(visitors_lower, revenue_lower, income_lower, total_lower),
+      `95% CI Upper` = c(visitors_upper, revenue_upper, income_upper, total_upper)
+    )
+  }, digits = 2)
+
+  output$sqftPlot &lt;- renderPlot({
+    ggplot(filtered_data(), aes(x = reorder(Museum, Visitors_per_SqFt),
+                                 y = Visitors_per_SqFt)) +
+      geom_col(fill = "steelblue") +
+      coord_flip() +
+      labs(x = NULL, y = "Visitors / sq ft") +
+      theme_minimal(base_size = 14) +
+      theme(plot.margin = margin(10, 20, 10, 10))
+  }, res = 96)
+
+  output$msaPlot &lt;- renderPlot({
+
+    df &lt;- filtered_data()
+
+    variable &lt;- switch(
+      input$population_metric,
+      "MSA Population" = "Visitors_per_1000_MSA",
+      "15 Minute Population" = "Visitors_per_1000_Pop15",
+      "30 Minute Population" = "Visitors_per_1000_Pop30",
+      "60 Minute Population" = "Visitors_per_1000_Pop60"
+    )
+
+    ggplot(
+      df,
+      aes(
+        x = reorder(Museum, .data[[variable]]),
+        y = .data[[variable]]
+      )
+    ) +
+      geom_col(fill = "darkorange") +
+      coord_flip() +
+      labs(
+        x = NULL,
+        y = "Visitors per 1,000 population"
+      ) +
+      theme_minimal(base_size = 14)
+
+  })
+
+  output$localTouristPlot &lt;- renderPlot({
+    df &lt;- filtered_data() %&gt;% filter(!is.na(Visitors_per_1000_Local_Tourists))
+    ggplot(df, aes(x = reorder(Museum, Visitors_per_1000_Local_Tourists),
+                    y = Visitors_per_1000_Local_Tourists)) +
+      geom_col(fill = "seagreen") +
+      coord_flip() +
+      labs(x = NULL, y = "Visitors / 1,000 local tourists") +
+      theme_minimal(base_size = 14) +
+      theme(plot.margin = margin(10, 20, 10, 10))
+  }, res = 96)
+
+  output$expenses &lt;- renderPlot({
+    df &lt;- filtered_data() %&gt;% filter(!is.na(Net_Income_per_rev))
+    ggplot(df, aes(x = reorder(Museum, Net_Income_per_rev), y = Net_Income_per_rev)) +
+      geom_col(fill = "hotpink4") +
+      coord_flip() +
+      labs(x = NULL, y = "Surplus Margin") +
+      theme_minimal(base_size = 14) +
+      theme(plot.margin = margin(10, 20, 10, 10))
+  }, res = 96)
+
+  output$financialScatter &lt;- renderPlot({
+
+    df &lt;- filtered_data() %&gt;%
+      mutate(
+        Financial_Contribution =
+          (Revenue_per_Visitor + Net_Inventory_Income_Per_Visitor)
+      ) %&gt;%
+      filter(
+        !is.na(Revenue_per_Visitor),
+        !is.na(Net_Inventory_Income_Per_Visitor)
+      )
+    ggplot(
+      df,
+      aes(
+        x = Financial_Contribution,
+        y = Net_Income_per_rev,
+        color = (Revenue_per_Visitor + Net_Inventory_Income_Per_Visitor) / Rev_per_Visitor
+      )
+    ) +
+      geom_point(size = 4, alpha = 0.8) +
+      scale_color_viridis_c(name = "ratio of financial contribution", option = "turbo") +
+
+      geom_text_repel(
+        aes(label = Museum),
+        seed = 42,
+        size = 3.5
+      ) +
+
+      geom_vline(
+        xintercept = median(df$Financial_Contribution, na.rm = TRUE),
+        linetype = "dashed",
+        color = "steelblue",
+        linewidth = 1
+      ) +
+
+      geom_hline(
+        yintercept = median(df$Net_Income_per_rev, na.rm = TRUE),
+        linetype = "dashed",
+        color = "firebrick",
+        linewidth = 1
+      ) +
+      scale_y_continuous(
+        labels = scales::percent_format(accuracy = 1)
+      ) +
+      scale_x_continuous(
+        labels = scales::dollar_format()
+      ) +
+      labs(
+        title = "Visitor Revenue vs. Operating Surplus",
+        subtitle = "Museums generating more revenue per visitor do not necessarily retain a larger operating surplus.",
+        x = "Financial Contribution per Visitor",
+        y = "Operating Surplus Margin"
+      ) +
+      theme_minimal(base_size = 14)
+
+  })
+
+  output$financialPlot &lt;- renderPlot({
+
+    df &lt;- filtered_data() %&gt;%
+      filter(
+        !is.na(Revenue_per_Visitor),
+        !is.na(Net_Inventory_Income_Per_Visitor)
+      ) %&gt;%
+      mutate(
+        Total = Revenue_per_Visitor + Net_Inventory_Income_Per_Visitor
+      ) %&gt;%
+      arrange(Total) %&gt;%
+      mutate(Museum = factor(Museum, levels = Museum)) %&gt;%
+      pivot_longer(
+        c(Revenue_per_Visitor, Net_Inventory_Income_Per_Visitor),
+        names_to = "Type",
+        values_to = "Value"
+      )
+    ggplot(df, aes(x = Museum, y = Value, fill = Type)) +
+      geom_col() +
+      coord_flip() +
+      scale_fill_manual(values = c("purple4", "gold1"),
+                         labels = c("Inventory Income", "Program Revenue")) +
+      labs(x = NULL, y = "Contribution per Visitor ($)", fill = NULL) +
+      theme_minimal(base_size = 14)
+
+  }, res = 96)
+
+  output$TotalRevPlot &lt;- renderPlot({
+    df &lt;- filtered_data() %&gt;% filter(
+      !is.na(Revenue_per_Visitor),
+      !is.na(Net_Inventory_Income_Per_Visitor),
+      !is.na(Rev_per_Visitor)
+    ) %&gt;%
+      mutate(totalRatio = (Revenue_per_Visitor + Net_Inventory_Income_Per_Visitor) / Rev_per_Visitor)
+
+    ggplot(df, aes(x = reorder(Museum, totalRatio),
+                   y = totalRatio)) +
+      geom_col(fill = "royalblue3") +
+      coord_flip() +
+      labs(x = NULL, y = "Financial Contriubtion / total rev / visitor") +
+      theme_minimal(base_size = 14) +
+      theme(plot.margin = margin(10, 20, 10, 10))
+  }, res = 96)
+
+  output$scatterPlot &lt;- renderPlot({
+
+    df &lt;- filtered_data()
+
+    predictor &lt;- switch(
+      input$scatter_predictor,
+      "Exhibit Size" = "SqFt",
+      "MSA Population" = "MSA_Pop",
+      "Population (15 min)" = "pop_15",
+      "Population (30 min)" = "pop_30",
+      "Population (60 min)" = "pop_60",
+      "Local Tourists" = "Local_Tourists"
+    )
+
+    x_label &lt;- switch(
+      input$scatter_predictor,
+      "Exhibit Size" = "Exhibit Space (sq ft)",
+      "MSA Population" = "MSA Population",
+      "Population (15 min)" = "Population within 15 Minutes",
+      "Population (30 min)" = "Population within 30 Minutes",
+      "Population (60 min)" = "Population within 60 Minutes",
+      "Local Tourists" = "Local Tourists"
+    )
+
+    # Remove missing values
+    df &lt;- df %&gt;%
+      filter(
+        !is.na(.data[[predictor]]),
+        !is.na(Visitors)
+      )
+
+    # Fit regression model
+    model &lt;- lm(
+      log10(Visitors) ~ log10(df[[predictor]]),
+      data = df
+    )
+
+    r2 &lt;- round(summary(model)$r.squared, 3)
+
+    ggplot(
+      df,
+      aes(
+        x = log10(.data[[predictor]]),
+        y = log10(Visitors)
+      )
+    ) +
+
+      geom_point(
+        size = 4,
+        alpha = 0.8,
+        color = "steelblue"
+      ) +
+
+      geom_text_repel(
+        aes(label = Museum),
+        size = 3.5,
+        box.padding = 0.4,
+        point.padding = 0.2,
+        max.overlaps = Inf,
+        seed = 42
+      ) +
+
+      geom_smooth(
+        method = "lm",
+        formula = y ~ x,
+        se = TRUE,
+        color = "firebrick",
+        linewidth = 1
+      ) +
+      scale_x_continuous(
+        labels = function(x) scales::comma(10^x)
+      ) +
+      scale_y_continuous(
+        labels = function(y) scales::comma(10^y)
+      ) +
+      annotate(
+        "text",
+        x = Inf,
+        y = Inf,
+        label = paste0("R\u00b2 = ", r2),
+        hjust = 1.1,
+        vjust = 1.5,
+        size = 5,
+        fontface = "bold"
+      ) +
+
+      labs(
+        title = "Attendance vs Selected Predictor",
+        x = x_label,
+        y = "Annual Visitors"
+      ) +
+
+      theme_minimal(base_size = 14)
+
+  })
+}
+
+shinyApp(ui, server)</code></pre>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
